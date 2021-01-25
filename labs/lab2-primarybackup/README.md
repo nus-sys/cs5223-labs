@@ -238,7 +238,7 @@ You should pass the part 1 tests before moving on to part 2; execute them with
   acknowledging the view in which it is the primary. This is expected. We will
   fix these flaws in the design in future labs.
 * You'll want to add field(s) to `ViewServer` in order to keep track of which
-  servers have pinged since the second-most-recent `PingCheckTimer`; you'll need
+  servers have pinged since recent `PingCheckTimer`s; you'll need
   to differentiate between servers which have pinged since the most recent
   `PingCheckTimer` and servers which have not.
 * Add field(s) to `ViewServer` to keep track of the current view.
