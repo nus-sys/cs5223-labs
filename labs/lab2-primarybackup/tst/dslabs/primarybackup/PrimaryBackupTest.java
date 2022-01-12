@@ -499,6 +499,11 @@ public class PrimaryBackupTest extends BaseJUnitTest {
 
         runSettings.resetNetwork();
 
+        // Let system fully heal
+        runState.start(runSettings);
+        Thread.sleep(PING_CHECK_MILLIS * 4);
+        runState.stop();
+
         // Read from the primary
         Workload readKeys = Workload.builder().commands(
                 IntStream.range(0, nKeys).mapToObj(KVStoreWorkload::get)
@@ -548,6 +553,11 @@ public class PrimaryBackupTest extends BaseJUnitTest {
         }
 
         runSettings.resetNetwork();
+
+        // Let system fully heal
+        runState.start(runSettings);
+        Thread.sleep(PING_CHECK_MILLIS * 4);
+        runState.stop();
 
         // Read from the primary
         Workload readKeys = Workload.workload(get("foo"));
@@ -847,7 +857,8 @@ public class PrimaryBackupTest extends BaseJUnitTest {
 
         // Have the client commit the operation to only the primary
         searchSettings.maxTimeSecs(10).partition(server(1), client(1), VSA)
-                      .addInvariant(RESULTS_OK).addGoal(clientDone(client(1)));
+                      .addInvariant(RESULTS_OK).addGoal(clientDone(client(1)))
+                      .addPrune(hasViewReply(INITIAL_VIEWNUM + 3));
         bfs(primaryAlone);
         final SearchState client1Done = goalMatchingState();
 
@@ -856,7 +867,7 @@ public class PrimaryBackupTest extends BaseJUnitTest {
                       .partition(server(1), server(2), client(2), VSA)
                       .linkActive(server(1), client(2), false)
                       .linkActive(client(2), server(1), false).clearGoals()
-                      .addGoal(CLIENTS_DONE).addPrune(
+                      .addGoal(CLIENTS_DONE).clearPrunes().addPrune(
                 hasViewReply(INITIAL_VIEWNUM + 3).implies(
                         hasViewReply(INITIAL_VIEWNUM + 3, server(1), server(2)))
                                                  .negate()).addPrune(

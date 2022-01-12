@@ -5,8 +5,10 @@
 
 import argparse
 import os
+import platform
 import shutil
 import subprocess
+import sys
 
 
 __author__ = 'Ellis Michael (emichael@cs.washington.edu)'
@@ -19,14 +21,27 @@ SEARCH_CATEGORY = 'dslabs.framework.testing.junit.SearchTests'
 
 VIZ_DEBUGGER = 'dslabs.framework.testing.visualization.VizClient'
 
-RUNTIME_CLASSPATH = (
-    'jars/framework.jar:'
-    'jars/framework-deps.jar:'
-    'jars/grader.jar:'
-    'jars/grader-deps.jar:'
-    'out/src/:'
-    'out/tst/'
+BASE_COMMAND = (
+    'java',
+    '--add-opens', 'java.base/jdk.internal.reflect=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.util=ALL-UNNAMED',
+    '--add-opens', 'java.base/java.util.concurrent.atomic=ALL-UNNAMED'
 )
+
+if platform.system() == 'Windows':
+    CP_SEP = ';'
+else:
+    CP_SEP = ':'
+
+RUNTIME_CLASSPATH = CP_SEP.join((
+    'jars/framework.jar',
+    'jars/framework-deps.jar',
+    'jars/grader.jar',
+    'jars/grader-deps.jar',
+    'out/src/',
+    'out/tst/'
+))
 
 def make():
     """Compile the source files, return True if successful."""
@@ -36,8 +51,7 @@ def make():
         print("Could not compile sources.\n")
         print(ex.output.decode("utf-8"))
         shutil.rmtree('out')
-        return False
-    return True
+        sys.exit(3)
 
 
 def run_tests(lab, part=None, no_run=False, no_search=False,
@@ -45,15 +59,9 @@ def run_tests(lab, part=None, no_run=False, no_search=False,
               start_viz=False, no_viz_server=False, do_checks=False,
               test_num=None, assertions=False):
     """Run the specified tests."""
-    if not make():
-        return
+    make()
 
-    command = ['java',
-               '--add-opens', 'java.base/jdk.internal.reflect=ALL-UNNAMED',
-               '--add-opens', 'java.base/java.lang=ALL-UNNAMED',
-               '--add-opens', 'java.base/java.util=ALL-UNNAMED',
-               '--add-opens',
-               'java.base/java.util.concurrent.atomic=ALL-UNNAMED']
+    command = list(BASE_COMMAND)
 
     if assertions:
         command.append('-ea')
@@ -104,15 +112,15 @@ def run_tests(lab, part=None, no_run=False, no_search=False,
 
     command.append(test_suite)
 
-    subprocess.call(command)
+    returncode = subprocess.call(command)
+    sys.exit(returncode)
 
 
 def run_viz_debugger(lab, args, no_viz_server=False):
     """Start the visual debugger."""
-    if not make():
-        return
+    make()
 
-    command = ['java']
+    command = list(BASE_COMMAND)
 
     if no_viz_server:
         command.append('-DnoVizServer=true')
@@ -126,7 +134,8 @@ def run_viz_debugger(lab, args, no_viz_server=False):
     command.append(str(lab))
     command += args
 
-    subprocess.call(command)
+    returncode = subprocess.call(command)
+    sys.exit(returncode)
 
 
 def main():
