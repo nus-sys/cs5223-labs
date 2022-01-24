@@ -45,13 +45,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public final class ShardStorePart1Test extends ShardStoreBaseTest {
+public final class ShardStorePart1RepTest extends ShardStoreBaseTest {
     @Test(timeout = 5 * 1000)
     @PrettyTestName("Single group, basic workload")
     @Category(RunTests.class)
     @TestPointValue(10)
     public void test01Basic() throws InterruptedException {
-        int numGroups = 1, numServersPerGroup = 1, numShardMasters = 1,
+        int numGroups = 1, numServersPerGroup = 3, numShardMasters = 3,
                 numShards = 10;
 
         setupStates(numGroups, numServersPerGroup, numShardMasters, numShards);
@@ -71,13 +71,13 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
     @Category(RunTests.class)
     @TestPointValue(15)
     public void test02JoinLeave() throws InterruptedException {
-        int numServersPerGroup = 1, numShardMasters = 1, numShards = 10;
+        int numServersPerGroup = 3, numShardMasters = 3, numShards = 10;
 
         setupStates(3, numServersPerGroup, numShardMasters, numShards);
 
         runState.start(runSettings);
 
-        joinGroup(1, numServersPerGroup);
+        joinGroup(1, 3);
 
         Client client = runState.addClient(client(1));
         Map<String, String> kv = new HashMap<>();
@@ -123,7 +123,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
     @Category(RunTests.class)
     @TestPointValue(15)
     public void test03ShardsMoveOnJoin() throws InterruptedException {
-        int numServersPerGroup = 1, numShardMasters = 1, numShards = 100;
+        int numServersPerGroup = 3, numShardMasters = 3, numShards = 100;
 
         setupStates(2, numServersPerGroup, numShardMasters, numShards);
 
@@ -177,7 +177,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
     @Category(RunTests.class)
     @TestPointValue(15)
     public void test04ShardsMoveOnMove() throws InterruptedException {
-        int numServersPerGroup = 1, numShardMasters = 1, numShards = 100;
+        int numServersPerGroup = 3, numShardMasters = 3, numShards = 100;
 
         setupStates(2, numServersPerGroup, numShardMasters, numShards);
 
@@ -270,7 +270,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
                 }));
     }
 
-    // @Test(timeout = 20 * 1000)
+    @Test(timeout = 20 * 1000)
     @PrettyTestName("Progress with majorities in each group")
     @Category(RunTests.class)
     @TestPointValue(15)
@@ -287,7 +287,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
         test02JoinLeave();
     }
 
-    // @Test(timeout = 60 * 1000)
+    @Test(timeout = 60 * 1000)
     @PrettyTestName("Repeated partitioning of each group")
     @Category(RunTests.class)
     @TestPointValue(20)
@@ -357,7 +357,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
     @Category(RunTests.class)
     @TestPointValue(20)
     public void test07ConstantMovement() throws InterruptedException {
-        int numGroups = 3, numServersPerGroup = 1, numShardMasters = 1,
+        int numGroups = 3, numServersPerGroup = 3, numShardMasters = 3,
                 numShards = 10, testLengthSecs = 50, nClients = 5;
 
         setupStates(numGroups, numServersPerGroup, numShardMasters, numShards);
@@ -492,7 +492,7 @@ public final class ShardStorePart1Test extends ShardStoreBaseTest {
         randomSearch(1);
     }
 
-    // @Test
+    @Test
     @PrettyTestName("Multiple servers per group random search")
     @Category(SearchTests.class)
     @TestPointValue(20)
