@@ -265,7 +265,7 @@ You should pass the part 3 tests; execute them with `run-tests.py --lab 4 --part
   not) have to go to greater lengths in this lab to ensure that transactions
   from the same client get processed in the same order on all replicas.
 
-## Part 4: Bonus
+## Part 4: Fault-Tolerance (Bonus)
 
 Finally, you'll make your transactional key-value store (parts 2-3)
 fault-tolerant, by replicating each shard group on multiple servers using
