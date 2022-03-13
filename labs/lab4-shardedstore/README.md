@@ -23,12 +23,12 @@ for a key, and replica groups consult the master in order to find out what
 shards to serve. There is a single shard master for the whole system,
 implemented as a fault-tolerant service using Paxos.
 
-**Update.** In order to simplify this lab, replication has been removed. Every
-group only contains one server, and there is one single shard master. After
-this simplification, sharded key-value store is fully decoupled with Paxos, but
-shard master is still an application running on top of a `PaxosServer`. That
-means, in order to finish lab 4, you must make sure your Paxos from lab 3 can
-at least work in singleton, i.e. pass the last search test.
+To simplify your lab implementation, in part 1, 2 and 3, you can assume each
+replica group and the shard master only contain one server. The implication is
+that you do not need a correct lab 3 implementation to pass parts 1-3. However,
+since the shard master is still a Paxos application, you will need to pass the
+one-server Paxos test (Paxos runs in a singleton group) in lab 3. To pass tests
+in part 4 (bonus), you do need a correct Paxos implementation.
 
 A sharded storage system must be able to shift shards among replica groups. One
 reason is that some groups may become more loaded than others, so that shards
@@ -136,7 +136,7 @@ You should pass the part 1 tests before moving on to part 2; execute them with
 
 
 ## Part 2: Sharded Key/Value Server, Reconfiguration
-Now you'll build a sharded fault-tolerant key/value storage system.
+Now you'll build a sharded key/value storage system.
 
 Each `ShardStoreServer` will operate as part of a replica group. Each replica
 group will serve operations for some of the key-space shards. Use `keyToShard()`
@@ -152,56 +152,16 @@ Your storage system must provide linearizability of `KVStore` operations passed
 to `ShardStoreClient`. This will get tricky when `Get`s, `Put`s, and `Append`s
 arrive at about the same time as configuration changes.
 
-You are allowed to assume that a majority of servers in each replica group are
-alive and can talk to each other, can talk to a majority of the `ShardMaster`
-servers, and can talk to a majority of every other replica group. Your
-implementation must operate (serve requests and be able to re-configure as
-needed) if a minority of servers in some replica group(s) are dead, temporarily
-unavailable, or slow.
+As described in the introduction, for parts 2 and 3, you can assume each
+replica group only contains one server. That means you do not need to use Paxos
+to replicate operations within each replica group (you can also assume there
+are no server failures in parts 2 and 3). If you plan to implement part 4
+(bonus), please refer to part 4 for how to setup `PaxosServer` in each replica
+group.
 
 Your servers should not try to send `Join` operations to the `ShardMaster`. The
 tests will send configuration changes when appropriate. `ShardStoreServer` and
 `ShardStoreClient` should only send `Query`s to the `ShardMaster` servers.
-
-(In this simplified version of lab 4, you do not need to set up sub-node as 
-described below. It is fine to directly process message from clients and other
-groups. You may skip until the hints unless you want to work on part 4.)
-
-Your `ShardStoreServer` should use Paxos to replicate operations among replicas
-in the same replica group as follows: First, modify `PaxosServer` by adding
-another constructor, which, instead of taking an application takes an `Address`.
-When started this way, your `PaxosServer` should run exactly the same as before,
-except instead of executing commands, it sends all decisions in order to the
-given address (using `handleMessage` described below). Next, in
-`ShardStoreServer` create a `PaxosServer` and initialize it as below.
-
-```java
-private static final String PAXOS_ADDRESS_ID = "paxos";
-private Address paxosAddress;
-
-public void init() {
-    // Setup Paxos
-    paxosAddress = Address.subAddress(address(), PAXOS_ADDRESS_ID);
-
-    Address[] paxosAddresses = new Address[group.length];
-    for (int i = 0; i < paxosAddresses.length; i++) {
-      paxosAddresses[i] = Address.subAddress(group[i], PAXOS_ADDRESS_ID);
-    }
-
-    PaxosServer paxosServer =
-        new PaxosServer(paxosAddress, paxosAddresses, address());
-    addSubNode(paxosServer);
-    paxosServer.init();
-
-    ...
-}
-```
-
-This sets up a Paxos group for each replica group. `ShardStoreServer`s can then
-pass operations to their local Paxos node to be proposed by calling
-`handleMessage(message, paxosAddress)`. Nodes within the same root node can pass
-messages to each other through this interface; these messages are not sent over
-the network but are immediately (and reliably) handled.
 
 Your `ShardStoreServer`s should instantiate their own local `KVStore` (wrapped
 in an `AMOApplication`). Unlike previous systems, this system will not be able
@@ -213,7 +173,6 @@ order to do this without creating sequence numbers for each `Query` sent, you
 might want to modify `PaxosServer` to allow it to handle read-only non-AMO
 commands, and send `Query`s (which are read-only) as simple `Command`s.
 
-
 Our solution to part 2 took approximately 350 lines of code.
 
 You should pass the part 2 tests; execute them with `run-tests.py --lab 4 --part
@@ -221,15 +180,6 @@ You should pass the part 2 tests; execute them with `run-tests.py --lab 4 --part
 
 
 ### Hints
-- You should handle all communication between replicas in the same group through
-  Paxos. Replicas should propose operations to the Paxos log, and they will all
-  process them in the same order. This should include key-value operations and
-  also any operations needed for reconfiguration. You should create your own
-  sub-Interface of `Command` which all of your reconfiguration-specific
-  operations inherit from so that you can easily propose these operations to the
-  Paxos log.
-- The easiest way for a replica/group to send a message to a different group is
-  by broadcasting the message to the entire group.
 - Your server should respond with an error message to a client operation on a
   key that the server isn't responsible for (i.e. for a key whose shard is not
   assigned to the server's group). As in the primary-backup case, the client can
@@ -244,21 +194,10 @@ You should pass the part 2 tests; execute them with `run-tests.py --lab 4 --part
   should update its `AMOApplication` state.
 - Think about when it is okay for a server to give shards to the other server
   during re-configuration.
-- The majority of the search tests for this lab assume that your Paxos
-  implementation is correct and only model check the new protocol. They do this
-  by instantiating all Paxos groups with a single server. Your Paxos
-  implementation should be able to reach agreement in a single step when there
-  is only one server; there is a test at the end of lab 3 that validates this.
-- You may have implemented optimizations in lab 3 by making assumptions which
-  were valid but do not hold for this lab. In particular, you should be very
-  cautious about dropping proposals when Paxos is running as a sub-node. As a
-  sub-node, Paxos should be oblivious to `AMOApplication` logic and should be
-  able to decide same command for different slots. Some de-duplication at the
-  `PaxosServer` level is possible, but it must be done carefully.
 
 
 ## Part 3: Transactions
-Finally, you'll extend your key-value store to support cross-group transactions
+Now, you'll extend your key-value store to support cross-group transactions
 using two-phase commit.
 
 First, you'll need to complete the `execute` method in `TransactionalKVStore` to
@@ -276,17 +215,15 @@ locks for the transaction and respond. If all groups participating in the
 transaction respond and no group aborts, the transaction coordinator will send
 the commit message to all groups; the groups will then free the locks and
 acknowledge the commit message. As previously stated, you are free to assume
-that a majority of servers from each group will remain active. Furthermore, if
-any nodes do fail, they fail by crashing. You *do not* need to implement a
-node failure recovery protocol.
+that there are no server failures. You *do not* need to implement a node
+failure recovery protocol.
 
 Your system should guarantee linearizability of all transactions and be
 deadlock-free; it should never reach a state where it cannot make progress.
 Furthermore, it should always be able to process reconfigurations, and when
 there are no ongoing reconfigurations and no conflicting transactions, it should
-be able to make progress and commit transactions (as long as the consensus
-protocol underlying each group continues to make progress, of course). You do
-not need to guarantee fairness, however (more on this below).
+be able to make progress and commit transactions. You do not need to guarantee
+fairness, however (more on this below).
 
 You should think carefully about how transactions will interact and interleave
 with reconfigurations. Unless handled with extreme care, attempting to execute
@@ -330,28 +267,79 @@ You should pass the part 3 tests; execute them with `run-tests.py --lab 4 --part
 
 ## Part 4: Bonus
 
-The tests in this part simply repeat part 2 and part 3, only with multiple
-servers in each replica group. You are encouraged to try it, and if you can
-pass all tests, you have sucessfully made a distributed system which both scales
-and tolerance faults. Congrats!
+Finally, you'll make your transactional key-value store (parts 2-3)
+fault-tolerant, by replicating each shard group on multiple servers using
+Paxos. To pass tests in part 4, you will need a correct implementation of lab
+3.
 
-Execute tests with `run-tests.py --lab 4 --part 4`. My solution of lab 4 is 
-about 800 lines of code.
+In this part, you are allowed to assume that a majority of servers in each
+replica group are alive and can talk to each other, can talk to a majority of
+the `ShardMaster` servers, and can talk to a majority of every other replica
+group. Your implementation must operate (serve requests and be able to
+re-configure as needed) if a minority of servers in some replica
+group(s) are dead, temporarily unavailable, or slow.
+
+You should augment your `ShardStoreServer` to use Paxos to replicate operations
+among replicas in the same replica group as follows: First, modify
+`PaxosServer` by adding another constructor, which, instead of taking an
+application takes an `Address`. When started this way, your `PaxosServer`
+should run exactly the same as before, except instead of executing commands, it
+sends all decisions in order to the given address (using `handleMessage`
+described below). Next, in `ShardStoreServer` create a `PaxosServer`
+and initialize it as below.
+
+```java
+private static final String PAXOS_ADDRESS_ID = "paxos";
+private Address paxosAddress;
+
+public void init() {
+    // Setup Paxos
+    paxosAddress = Address.subAddress(address(), PAXOS_ADDRESS_ID);
+
+    Address[] paxosAddresses = new Address[group.length];
+    for (int i = 0; i < paxosAddresses.length; i++) {
+      paxosAddresses[i] = Address.subAddress(group[i], PAXOS_ADDRESS_ID);
+    }
+
+    PaxosServer paxosServer =
+        new PaxosServer(paxosAddress, paxosAddresses, address());
+    addSubNode(paxosServer);
+    paxosServer.init();
+
+    ...
+}
+```
+
+This sets up a Paxos group for each replica group. `ShardStoreServer`s can then
+pass operations to their local Paxos node to be proposed by calling
+`handleMessage(message, paxosAddress)`. Nodes within the same root node can pass
+messages to each other through this interface; these messages are not sent over
+the network but are immediately (and reliably) handled.
+
+Execute tests with `run-tests.py --lab 4 --part 4`. Our solution took
+approximately 800 lines of code.
 
 ### Hints
-* If you plan to finish part 4, you may want to consider about design choices
-for it beforehand. For example, it is probably necessary to create command type
-per most message types, and doing that early reduces rewriting.
-* Many checking against operations need to be performed twice: before proposed
-to Paxos replicas to prevent meaningless ordering on obviously late or nonsense
-operations, and before execution which ensure correctness. Extracting these 
-checks into utility functions help avoid writing them twice, which is bug-prone.
-* While looking into logs, paxos messages is mixed in, which can be filtered by
-log level. Sharded store logs will also be logged multiple times by each replica
-in the group. You may include server addresses in the log, and use it to 
-deduplicate from command line. However, the order of cross-group messages is
-determined by the fastest replica of each group, which maybe requires to read
-the full log to find out which replica it is.
+- You should handle all communication between replicas in the same group through
+  Paxos. Replicas should propose operations to the Paxos log, and they will all
+  process them in the same order. This should include key-value operations and
+  also any operations needed for reconfiguration. You should create your own
+  sub-Interface of `Command` which all of your reconfiguration-specific
+  operations inherit from so that you can easily propose these operations to the
+  Paxos log.
+- The easiest way for a replica/group to send a message to a different group is
+  by broadcasting the message to the entire group.
+- The majority of the search tests for this lab assume that your Paxos
+  implementation is correct and only model check the new protocol. They do this
+  by instantiating all Paxos groups with a single server. Your Paxos
+  implementation should be able to reach agreement in a single step when there
+  is only one server; there is a test at the end of lab 3 that validates this.
+- You may have implemented optimizations in lab 3 by making assumptions which
+  were valid but do not hold for this lab. In particular, you should be very
+  cautious about dropping proposals when Paxos is running as a sub-node. As a
+  sub-node, Paxos should be oblivious to `AMOApplication` logic and should be
+  able to decide same command for different slots. Some de-duplication at the
+  `PaxosServer` level is possible, but it must be done carefully.
 
 ---
 
