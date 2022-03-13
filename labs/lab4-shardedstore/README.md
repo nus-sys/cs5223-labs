@@ -23,6 +23,13 @@ for a key, and replica groups consult the master in order to find out what
 shards to serve. There is a single shard master for the whole system,
 implemented as a fault-tolerant service using Paxos.
 
+**Update.** In order to simplify this lab, replication has been removed. Every
+group only contains one server, and there is one single shard master. After
+this simplification, sharded key-value store is fully decoupled with Paxos, but
+shard master is still an application running on top of a `PaxosServer`. That
+means, in order to finish lab 4, you must make sure your Paxos from lab 3 can
+at least work in singleton, i.e. pass the last search test.
+
 A sharded storage system must be able to shift shards among replica groups. One
 reason is that some groups may become more loaded than others, so that shards
 need to be moved to balance the load. Another reason is that replica groups may
@@ -155,6 +162,10 @@ unavailable, or slow.
 Your servers should not try to send `Join` operations to the `ShardMaster`. The
 tests will send configuration changes when appropriate. `ShardStoreServer` and
 `ShardStoreClient` should only send `Query`s to the `ShardMaster` servers.
+
+(In this simplified version of lab 4, you do not need to set up sub-node as 
+described below. It is fine to directly process message from clients and other
+groups. You may skip until the hints unless you want to work on part 4.)
 
 Your `ShardStoreServer` should use Paxos to replicate operations among replicas
 in the same replica group as follows: First, modify `PaxosServer` by adding
@@ -317,6 +328,30 @@ You should pass the part 3 tests; execute them with `run-tests.py --lab 4 --part
   not) have to go to greater lengths in this lab to ensure that transactions
   from the same client get processed in the same order on all replicas.
 
+## Part 4: Bonus
+
+The tests in this part simply repeat part 2 and part 3, only with multiple
+servers in each replica group. You are encouraged to try it, and if you can
+pass all tests, you have sucessfully made a distributed system which both scales
+and tolerance faults. Congrats!
+
+Execute tests with `run-tests.py --lab 4 --part 4`. My solution of lab 4 is 
+about 800 lines of code.
+
+### Hints
+* If you plan to finish part 4, you may want to consider about design choices
+for it beforehand. For example, it is probably necessary to create command type
+per most message types, and doing that early reduces rewriting.
+* Many checking against operations need to be performed twice: before proposed
+to Paxos replicas to prevent meaningless ordering on obviously late or nonsense
+operations, and before execution which ensure correctness. Extracting these 
+checks into utility functions help avoid writing them twice, which is bug-prone.
+* While looking into logs, paxos messages is mixed in, which can be filtered by
+log level. Sharded store logs will also be logged multiple times by each replica
+in the group. You may include server addresses in the log, and use it to 
+deduplicate from command line. However, the order of cross-group messages is
+determined by the fastest replica of each group, which maybe requires to read
+the full log to find out which replica it is.
 
 ---
 
