@@ -265,6 +265,9 @@ You should pass the part 3 tests; execute them with `run-tests.py --lab 4 --part
   not) have to go to greater lengths in this lab to ensure that transactions
   from the same client get processed in the same order on all replicas.
 
+Notice: when run `run-tests.py --lab 4`, it will run part 1 to 3, excluding the
+bonus part below; this is also the command for grading.
+
 ## Part 4: Fault-Tolerance (Bonus)
 
 Finally, you'll make your transactional key-value store (parts 2-3)
